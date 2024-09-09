@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-// import { API } from 'aws-amplify';
+import { get, post, put, del } from '@aws-amplify/api';
+import { fetchAuthSession } from '@aws-amplify/auth';
 
 function App({ signOut }) {
   const [userId, setUserId] = useState('');
@@ -7,43 +8,116 @@ function App({ signOut }) {
   const [email, setEmail] = useState('');
   const [userData, setUserData] = useState(null);
 
-  // const fetchUser = async () => {
-  //   try {
-  //     const response = await API.get('userApi', `/users?id=${userId}`);
-  //     setUserData(response);
-  //   } catch (error) {
-  //     console.error('Error fetching user:', error);
-  //   }
-  // };
+  const fetchToken = async () => {
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      // console.log(token);
+      return token;
+    } catch (error) {
+      console.error('Error fetching token:', error);
+      return null;
+    }
+  };
 
-  // const createUser = async () => {
-  //   try {
-  //     const user = { id: userId, name, email };
-  //     await API.post('userApi', '/users', { body: user });
-  //     alert('User created successfully');
-  //   } catch (error) {
-  //     console.error('Error creating user:', error);
-  //   }
-  // };
+  const fetchUsers = async () => {
+    try {
+      const token = await fetchToken();
+      if (!token) return;
+      const response = await get({
+        apiName: process.env.REACT_APP_API_NAME,
+        path: `/users?id=${userId}`,
+        options: {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      }).response;
+      const data = await response?.body.json();
+      setUserData(data);
+    } catch (error) {
+      const data = error.response?.body || '';
+      if (data) {
+        JSON.parse(error.response?.body);
+        setUserData(data);
+      }
+      console.error(error);
+    }
+  };
 
-  // const updateUser = async () => {
-  //   try {
-  //     const user = { id: userId, name, email };
-  //     await API.put('userApi', '/users', { body: user });
-  //     alert('User updated successfully');
-  //   } catch (error) {
-  //     console.error('Error updating user:', error);
-  //   }
-  // };
+  const createUser = async () => {
+    try {
+      const token = await fetchToken();
+      if (!token) return;
+      const user = { id: userId, name, email };
+      const formData = new FormData();
+      for (const [key, value] of Object.entries(user)) {
+        formData.append(key, value);
+      }
+      const response = await post({
+        apiName: process.env.REACT_APP_API_NAME,
+        path: `/users`,
+        options: {
+          body: user,
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      }).response;
+      const data = await response?.body.json();
+      setUserData(`User with id:${data.id} created successfully`);
+    } catch (error) {
+      const data = error.response?.body || '';
+      if (data) {
+        JSON.parse(error.response?.body);
+        setUserData(data);
+      }
+      console.error(error);
+    }
+  };
 
-  // const deleteUser = async () => {
-  //   try {
-  //     await API.del('userApi', `/users?id=${userId}`);
-  //     alert('User deleted successfully');
-  //   } catch (error) {
-  //     console.error('Error deleting user:', error);
-  //   }
-  // };
+  const updateUser = async () => {
+    try {
+      const token = await fetchToken();
+      if (!token) return;
+      const user = { id: userId, name, email };
+      const response = await put({
+        apiName: process.env.REACT_APP_API_NAME,
+        path: `/users?id=${userId}`,
+        options: {
+          body: user,
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      }).response;
+      const data = await response?.body.json();
+      setUserData(`User with id:${data.id} updated successfully`);
+    } catch (error) {
+      const data = error.response?.body || '';
+      if (data) {
+        JSON.parse(error.response?.body);
+        setUserData(data);
+      }
+      console.error(error);
+    }
+  };
+
+  const deleteUser = async () => {
+    try {
+      const token = await fetchToken();
+      if (!token) return;
+      await del({
+        apiName: process.env.REACT_APP_API_NAME,
+        path: `/users?id=${userId}`,
+        options: {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      }).response;
+      setUserData(`User with id:${userId} deleted successfully`);
+    } catch (error) {
+      const data = error.response?.body || '';
+      if (data) {
+        JSON.parse(error.response?.body);
+        setUserData(data);
+      }
+      console.error(error);
+    }
+  };
 
   return (
     <div className="App">
@@ -67,10 +141,10 @@ function App({ signOut }) {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
-      {/* <button onClick={fetchUser}>Fetch User</button>
+      <button onClick={fetchUsers}>Fetch Users</button>
       <button onClick={createUser}>Create User</button>
       <button onClick={updateUser}>Update User</button>
-      <button onClick={deleteUser}>Delete User</button> */}
+      <button onClick={deleteUser}>Delete User</button>
       {userData && (
         <div>
           <h2>User Data:</h2>
